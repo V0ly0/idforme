@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Grok Date Editor</title>
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #0a0a0a;
+      --surface: #111;
+      --border: #1e1e1e;
+      --border-hover: #333;
+      --accent: #c8ff00;
+      --accent-dim: rgba(200,255,0,0.08);
+      --text: #f0f0f0;
+      --text-muted: #555;
+      --text-dim: #888;
+      --radius: 12px;
+      --radius-sm: 8px;
+    }
+    * { box-sizing: border-box; margin:0; padding:0; }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'DM Mono', monospace;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 60px 20px 80px;
+    }
+    header { text-align:center; margin-bottom:52px; }
+    header .label { font-size:11px; letter-spacing:0.2em; color:var(--accent); text-transform:uppercase; margin-bottom:14px; }
+    header h1 { font-family:'Syne', sans-serif; font-weight:800; font-size:clamp(2rem,6vw,3.4rem); color:var(--text); line-height:1; letter-spacing:-0.02em; }
+    header h1 span { color: var(--accent); }
+    header p { margin-top:14px; font-size:13px; color:var(--text-dim); max-width:440px; line-height:1.7; }
+
+    .card {
+      width: 100%; max-width:640px;
+      background: var(--surface);
+      border:1px solid var(--border);
+      border-radius:18px;
+      padding:36px;
+      display:flex;
+      flex-direction:column;
+      gap:28px;
+    }
+
+    .field { display:flex; flex-direction:column; gap:8px; }
+    .field-label { font-size:11px; letter-spacing:0.15em; color:var(--text-muted); text-transform:uppercase; }
+
+    .upload-zone {
+      border: 1.5px dashed var(--border-hover);
+      border-radius: var(--radius);
+      padding: 36px 24px;
+      text-align: center;
+      cursor: pointer;
+      transition: border-color 0.2s, background 0.2s;
+      position: relative;
+    }
+    .upload-zone:hover, .upload-zone.drag { border-color: var(--accent); background: var(--accent-dim); }
+    .upload-zone input[type=file] { display:none; }
+    .upload-icon { font-size:30px; margin-bottom:10px; display:block; }
+    .upload-zone p { font-size:13px; color: var(--text-dim); line-height:1.6; }
+    .upload-zone strong { color: var(--text); }
+    .upload-zone .preview {
+      margin-top:16px;
+      border-radius: var(--radius-sm);
+      max-height:240px;
+      max-width:100%;
+      object-fit:contain;
+      display:none;
+      border:1px solid var(--border);
+    }
+    .upload-zone.has-image .upload-icon,
+    .upload-zone.has-image > p { display:none; }
+    .upload-zone.has-image .preview { display:block; margin:0 auto; }
+
+    .field input[type=date] {
+      background: var(--bg);
+      border:1px solid var(--border);
+      border-radius:var(--radius-sm);
+      padding:12px 16px;
+      font-family:'DM Mono', monospace;
+      font-size:13px;
+      color:var(--text);
+      outline:none;
+      width:100%;
+      transition:border-color 0.2s;
+      color-scheme: dark;
+    }
+    .field input[type=date]:focus { border-color:var(--accent); }
+
+    .btn-run {
+      background:var(--accent);
+      color:#000;
+      border:none;
+      border-radius:var(--radius-sm);
+      padding:16px 28px;
+      font-family:'Syne', sans-serif;
+      font-weight:700;
+      font-size:14px;
+      letter-spacing:0.05em;
+      cursor:pointer;
+      text-transform:uppercase;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      gap:10px;
+      transition: opacity 0.2s, transform 0.1s;
+    }
+    .btn-run:hover { opacity:0.88; }
+    .btn-run:active { transform:scale(0.98); }
+    .btn-run:disabled { opacity:0.4; cursor:not-allowed; }
+    .spinner { width:16px;height:16px;border:2px solid #0008;border-top-color:#000;border-radius:50%;display:none;animation:spin 0.7s linear infinite; }
+    @keyframes spin { to { transform:rotate(360deg); } }
+    .btn-run.loading .spinner { display:block; }
+    .btn-run.loading .btn-text { opacity:0.6; }
+
+    .status { font-size:12px; color:var(--text-dim); text-align:center; min-height:18px; transition:color 0.2s; }
+    .status.error { color:#ff5c5c; }
+    .status.success { color:var(--accent); }
+
+    .result-section { display:none; flex-direction:column; gap:16px; border-top:1px solid var(--border); padding-top:28px; }
+    .result-section.visible { display:flex; }
+    .result-label { font-size:11px; letter-spacing:0.15em; color:var(--accent); text-transform:uppercase; }
+    .result-img-wrap { border-radius:var(--radius); overflow:hidden; border:1px solid var(--border); background:#0d0d0d; display:flex; align-items:center; justify-content:center; min-height:200px; }
+    .result-img-wrap img { max-width:100%; max-height:480px; object-fit:contain; display:block; }
+    .btn-dl { background:none; border:1px solid var(--border); border-radius:var(--radius-sm); padding:11px 20px; color:var(--text-dim); font-family:'DM Mono', monospace; font-size:12px; cursor:pointer; text-decoration:none; display:inline-flex; align-items:center; gap:8px; align-self:flex-start; transition:border-color 0.2s, color 0.2s; }
+    .btn-dl:hover { border-color:var(--accent); color:var(--accent); }
+
+    footer { margin-top:52px; font-size:11px; color:var(--text-muted); text-align:center; letter-spacing:0.05em; }
+    footer a { color:var(--text-muted); text-decoration:none; }
+    footer a:hover { color:var(--text-dim); }
+    .divider { height:1px; background:var(--border); }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="label">Powered by Grok Vision</div>
+  <h1>Date <span>Editor</span></h1>
+  <p>Charge une image, entre une date de naissance, et Grok modifie automatiquement le document.</p>
+</header>
+
+<div class="card">
+  <div class="field">
+    <span class="field-label">Image du document</span>
+    <div class="upload-zone" id="uploadZone" onclick="document.getElementById('fileInput').click()">
+      <span class="upload-icon">📄</span>
+      <p><strong>Clique ou glisse</strong> une image ici<br/><small>JPG, PNG, WEBP — max 20 Mo</small></p>
+      <input type="file" id="fileInput" accept="image/*" onchange="handleFile(event)" />
+      <img class="preview" id="preview" src="" alt="preview" />
+    </div>
+  </div>
+
+  <div class="field">
+    <span class="field-label">Nouvelle date de naissance</span>
+    <input type="date" id="dateInput" />
+  </div>
+
+  <button class="btn-run" id="runBtn" onclick="runEdit()" disabled>
+    <div class="spinner"></div>
+    <span class="btn-text">✦ Modifier avec Grok</span>
+  </button>
+
+  <div class="status" id="statusMsg"></div>
+
+  <div class="result-section" id="resultSection">
+    <span class="result-label">✓ Résultat</span>
+    <div class="result-img-wrap" id="resultImgWrap"></div>
+    <a class="btn-dl" id="dlBtn" href="#" download="grok_result.png">↓ Télécharger l'image</a>
+  </div>
+</div>
+
+<footer>
+  Backend hébergé sur <a href="https://test-kappa-six-70.vercel.app" target="_blank">test-kappa-six-70.vercel.app</a>
+</footer>
+
+<script>
+let imageBase64 = null;
+let imageMime = 'image/jpeg';
+const backendUrl = "https://test-kappa-six-70.vercel.app/ask";
+
+/* ── File handling ── */
+function handleFile(e){
+  const file = e.target.files[0];
+  if(!file) return;
+  imageMime = file.type || 'image/jpeg';
+  const reader = new FileReader();
+  reader.onload = ev=>{
+    const result = ev.target.result;
+    imageBase64 = result.split(',')[1];
+    document.getElementById('preview').src = result;
+    document.getElementById('uploadZone').classList.add('has-image');
+    checkReady();
+  };
+  reader.readAsDataURL(file);
+}
+
+const zone = document.getElementById('uploadZone');
+zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('drag'); });
+zone.addEventListener('dragleave', ()=> zone.classList.remove('drag'));
+zone.addEventListener('drop', e=>{
+  e.preventDefault();
+  zone.classList.remove('drag');
+  const file = e.dataTransfer.files[0];
+  if(file && file.type.startsWith('image/')) handleFile({target:{files:[file]}});
+});
+
+document.getElementById('dateInput').addEventListener('input', checkReady);
+function checkReady(){
+  const ok = imageBase64 && document.getElementById('dateInput').value;
+  document.getElementById('runBtn').disabled = !ok;
+}
+
+function formatDate(val){
+  const [y,m,d] = val.split('-');
+  return `${d}/${m}/${y}`;
+}
+
+async function runEdit(){
+  const dateVal = document.getElementById('dateInput').value;
+  if(!dateVal || !imageBase64) return;
+  const date = formatDate(dateVal);
+  const prompt = `Modifie la date de naissance par "${date}" en haut et en bas du document. Retourne uniquement l'image modifiée.`;
+
+  setLoading(true);
+  setStatus('');
+  hideResult();
+
+  try {
+    const res = await fetch(backendUrl, {
+      method: "POST",
+      headers: {"Content-Type":"application/json"},
+      body: JSON.stringify({prompt:prompt,image_base64:imageBase64})
+    });
+
+    if(!res.ok) throw new Error(`HTTP ${res.status} → ${await res.text()}`);
+    const data = await res.json();
+    let imgSrc = data?.image_base64 ? `data:image/png;base64,${data.image_base64}` : null;
+
+    if(imgSrc) showResultImage(imgSrc);
+    else setStatus("Aucune image retournée.", 'error');
+  } catch(err){
+    console.error(err);
+    setStatus(`Erreur : ${err.message}`, 'error');
+  } finally { setLoading(false); }
+}
+
+function setLoading(on){
+  const btn = document.getElementById('runBtn');
+  btn.classList.toggle('loading', on);
+  btn.disabled = on;
+  if(on) setStatus('Envoi à Grok…');
+}
+
+function setStatus(msg,type=''){
+  const el = document.getElementById('statusMsg');
+  el.textContent = msg;
+  el.className = 'status' + (type ? ` ${type}` : '');
+}
+
+function hideResult(){
+  const sec = document.getElementById('resultSection');
+  sec.classList.remove('visible');
+  document.getElementById('resultImgWrap').innerHTML='';
+}
+
+function showResultImage(src){
+  const wrap = document.getElementById('resultImgWrap');
+  const img = document.createElement('img');
+  img.src = src;
+  img.alt = 'Résultat Grok';
+  wrap.appendChild(img);
+
+  const dlBtn = document.getElementById('dlBtn');
+  dlBtn.href = src;
+  dlBtn.style.display = 'inline-flex';
+
+  document.getElementById('resultSection').classList.add('visible');
+}
+</script>
+</body>
+</html>
